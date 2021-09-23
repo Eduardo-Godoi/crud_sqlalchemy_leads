@@ -3,30 +3,33 @@ from datetime import datetime
 
 from app.configs.database import db
 from app.models.lead_model import Lead
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify
 from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import UnmappedInstanceError
 
 
 def register_lead(data) -> tuple:
-    data = request.get_json()
+    try:
+        if type(validate_phone(data['phone'])) is tuple:
+            return validate_phone(data['phone'])
 
-    if type(validate_phone(data['phone'])) == tuple:
-        return validate_phone(data['phone'])
+        new_lead = Lead(
+            name=data['name'],
+            email=data['email'],
+            phone=data['phone'],
+            creation_date=datetime.now(),
+            last_visit=datetime.now(),
+        )
 
-    new_lead = Lead(
-        name=data['name'],
-        email=data['email'],
-        phone=data['phone'],
-        creation_date=datetime.now(),
-        last_visit=datetime.now(),
-    )
+        session = current_app.db.session
+        session.add(new_lead)
+        session.commit()
 
-    session = current_app.db.session
-    session.add(new_lead)
-    session.commit()
+        return jsonify(new_lead), 201
 
-    return jsonify(new_lead), 201
+    except IntegrityError:
+        return {'msg': 'E-mail ou telefone já cadastrado!'}, 409
 
 
 def validate_phone(phone) -> tuple:
